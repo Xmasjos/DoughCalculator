@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dough Calculator</title>
+  <link rel="stylesheet" href="https://ka-f.webawesome.com/webawesome@3.9.0/styles/webawesome.css" />
+  <script type="module" src="https://ka-f.webawesome.com/webawesome@3.9.0/webawesome.loader.js"></script>
+  <script src="calculator.js" defer></script>
+  <style>
+    :root {
+      --sl-color-primary-600: #d4841f;
+      --sl-color-primary-500: #e69949;
+      --sl-color-primary-700: #c67316;
+    }
+  </style>
+  <link rel="stylesheet" href="calculator.css" />
+</head>
+
+<body>
+  <wa-page id="root">
+    <div class="page-header">
+      <h1>Dough Calculator</h1>
+      <p>Simple bread dough ingredient calculator</p>
+    </div>
+
+    <sl-card style="margin: 16px;">
+      <div class="calculator-grid">
+        <div>
+          <!-- Input Mode Toggle -->
+          <div class="input-mode-toggle">
+            <button id="modeGrams" class="active">Grams</button>
+            <button id="modeBakers">Baker's %</button>
+          </div>
+
+          <!-- Ingredients Section -->
+          <h3>Ingredients</h3>
+          <wa-number-input id="flour" label="Flour" type="number" min="100" value="1000" step="50"></wa-number-input>
+          <span class="weight-display" id="flourUnit">(g)</span>
+
+          <wa-number-input id="hydration" label="Hydration (%)" type="range" min="40" max="90" value="65"></wa-number-input>
+
+          <wa-number-input id="salt" label="Salt" type="number" min="0" max="10" step="0.1" value="2"></wa-number-input>
+          <span class="weight-display" id="saltUnit">(g)</span>
+
+          <wa-number-input id="sugar" label="Sugar (optional)" type="number" min="0" max="20" step="0.1"
+            value="0"></wa-number-input>
+          <span class="weight-display" id="sugarUnit">(g)</span>
+
+          <wa-number-input id="fat" label="Fat/Oil (optional)" type="number" min="0" max="20" step="0.1"
+            value="0"></wa-number-input>
+          <span class="weight-display" id="fatUnit">(g)</span>
+
+          <!-- Fermentation Section -->
+          <h3 style="margin-top: 24px;">Fermentation Parameters</h3>
+          <wa-number-input id="bulkTime" label="Bulk Fermentation Time (hours)" type="number" min="1" max="24" step="0.5"
+            value="4"></wa-number-input>
+          <wa-number-input id="bulkTemp" label="Bulk Temperature (°C)" type="number" min="10" max="35" step="1"
+            value="22"></wa-number-input>
+
+          <wa-number-input id="coldTime" label="Cold Proofing Time (hours)" type="number" min="0" max="72" step="1"
+            value="12"></wa-number-input>
+          <wa-number-input id="coldTemp" label="Cold Temperature (°C)" type="number" min="-5" max="10" step="1"
+            value="4"></wa-number-input>
+
+          <!-- Adjustment Section -->
+          <h3 style="margin-top: 24px;">Adjustment</h3>
+          <wa-slider id="multiplier" label="Yeast Multiplier" type="range" min="0.5" max="2.0" step="0.1"
+            value="1.0"></wa-slider>
+          <span class="weight-display" id="multiplierValue">1.0x</span>
+
+          <!-- <wa-button id="calculate" variant="brand" style="width: 100%; margin-top: 16px;">Calculate</wa-button> -->
+        </div>
+
+        <div>
+          <sl-card class="ingredients-card">
+            <div slot="header">Results</div>
+            <div class="statistics">
+              <div class="statistic-item">
+                <div class="label">Hydration</div>
+                <div class="value" id="hydrationValue">65 %</div>
+              </div>
+              <div class="statistic-item">
+                <div class="label">Dough Weight</div>
+                <div class="value" id="totalValue">1680 g</div>
+              </div>
+              <div class="statistic-item">
+                <div class="label">Yeast (Fresh)</div>
+                <div class="value" id="yeastFreshValue">5.0 g</div>
+              </div>
+              <div class="statistic-item">
+                <div class="label">Yeast (Dry)</div>
+                <div class="value" id="yeastDryValue">2.0 g</div>
+              </div>
+            </div>
+
+            <div class="calculation-details">
+              <strong>Calculation Details:</strong>
+              <div id="detailsList"></div>
+            </div>
+          </sl-card>
+
+          <sl-card class="notes">
+            <div slot="header">Tips</div>
+            <p><strong>Input Mode:</strong> Switch between absolute weights (grams) or baker's percentages (% of flour).
+            </p>
+            <p><strong>Multiplier:</strong> Adjust up for faster rise or down for more flavor development.</p>
+            <p><strong>Fresh vs Dry:</strong> Dry yeast is ~40% of fresh yeast by weight.</p>
+          </sl-card>
+        </div>
+      </div>
+    </sl-card>
+  </wa-page>
+
+  <script>
+    let inputMode = 'grams'; // 'grams' or 'bakers'
+
+    class AppState {
+      constructor() {
+        this.flour = 1000;
+        this.hydration = 65;
+        this.salt = 2;
+        this.sugar = 0;
+        this.fat = 0;
+        this.bulkTime = 4;
+        this.bulkTemp = 22;
+        this.coldTime = 12;
+        this.coldTemp = 4;
+        this.multiplier = 1.0;
+      }
+
+      updateFromInputMode() {
+        if (inputMode === 'grams') {
+          this.flour = Number(document.getElementById('flour').value) || 1000;
+          this.salt = Number(document.getElementById('salt').value) || 2;
+          this.sugar = Number(document.getElementById('sugar').value) || 0;
+          this.fat = Number(document.getElementById('fat').value) || 0;
+        } else { // bakers
+          const flourValue = Number(document.getElementById('flour').value) || 100;
+          this.flour = flourValue;
+          // In baker's mode, salt/sugar/fat are percentages
+          this.salt = Number(document.getElementById('salt').value) || 2;
+          this.sugar = Number(document.getElementById('sugar').value) || 0;
+          this.fat = Number(document.getElementById('fat').value) || 0;
+        }
+        this.hydration = Number(document.getElementById('hydration').value) || 65;
+        this.bulkTime = Number(document.getElementById('bulkTime').value) || 4;
+        this.bulkTemp = Number(document.getElementById('bulkTemp').value) || 22;
+        this.coldTime = Number(document.getElementById('coldTime').value) || 12;
+        this.coldTemp = Number(document.getElementById('coldTemp').value) || 4;
+        this.multiplier = Number(document.getElementById('multiplier').value) || 1.0;
+      }
+    }
+
+    const state = new AppState();
+
+    function updateSliderDisplay(id, displayId, suffix = '') {
+      const input = document.getElementById(id);
+      const value = Number(input.value);
+      document.getElementById(displayId).textContent = value.toFixed(input.step === '1' ? 0 : 1) + suffix;
+    }
+
+    function switchInputMode(mode) {
+      inputMode = mode;
+      document.getElementById('modeGrams').classList.toggle('active', mode === 'grams');
+      document.getElementById('modeBakers').classList.toggle('active', mode === 'bakers');
+
+      // Update labels
+      const flourInput = document.getElementById('flour');
+      const saltInput = document.getElementById('salt');
+      const sugarInput = document.getElementById('sugar');
+      const fatInput = document.getElementById('fat');
+
+      if (mode === 'grams') {
+        flourInput.setAttribute('label', 'Flour');
+        saltInput.setAttribute('label', 'Salt');
+        sugarInput.setAttribute('label', 'Sugar (optional)');
+        fatInput.setAttribute('label', 'Fat/Oil (optional)');
+        document.getElementById('flourUnit').textContent = '(g)';
+        document.getElementById('saltUnit').textContent = '(g)';
+        document.getElementById('sugarUnit').textContent = '(g)';
+        document.getElementById('fatUnit').textContent = '(g)';
+      } else {
+        flourInput.setAttribute('label', 'Flour');
+        saltInput.setAttribute('label', 'Salt');
+        sugarInput.setAttribute('label', 'Sugar (optional)');
+        fatInput.setAttribute('label', 'Fat/Oil (optional)');
+        document.getElementById('flourUnit').textContent = '(g)';
+        document.getElementById('saltUnit').textContent = '(% of flour)';
+        document.getElementById('sugarUnit').textContent = '(% of flour)';
+        document.getElementById('fatUnit').textContent = '(% of flour)';
+      }
+
+      calculate();
+    }
+
+    function calculate() {
+      state.updateFromInputMode();
+
+      const { flour, hydration, salt, sugar, fat, bulkTime, bulkTemp, coldTime, coldTemp, multiplier } = state;
+
+      // Calculate ingredient weights
+      const water = flour * hydration / 100;
+      const saltWeight = flour * salt / 100;
+      const sugarWeight = flour * sugar / 100;
+      const fatWeight = flour * fat / 100;
+      const totalDough = flour + water + saltWeight + sugarWeight + fatWeight;
+
+      // Calculate yeast using existing formula
+      const yeastResult = calculateYeast({
+        flourWeight: flour,
+        hydration: hydration,
+        salt: salt,
+        sugar: sugar,
+        fat: fat,
+        temperature: (bulkTemp * bulkTime + coldTemp * coldTime) / (bulkTime + coldTime),
+        fermentationTime: bulkTime + coldTime
+      });
+
+      // Apply multiplier
+      const yeastPercentAdjusted = (yeastResult.yeastPercent * multiplier).toFixed(2);
+      const yeastFresh = ((yeastPercentAdjusted / 100) * flour).toFixed(1);
+      const yeastDry = (yeastFresh * 0.4).toFixed(1);
+
+      // Update display
+      document.getElementById('hydrationValue').textContent = hydration.toFixed(1) + ' %';
+      document.getElementById('totalValue').textContent = Math.round(totalDough) + ' g';
+      document.getElementById('yeastFreshValue').textContent = yeastFresh + ' g';
+      document.getElementById('yeastDryValue').textContent = yeastDry + ' g';
+      document.getElementById('multiplierValue').textContent = multiplier.toFixed(2) + 'x';
+
+      // Show calculation details
+      const details = [
+        `Flour: ${flour.toFixed(0)}g`,
+        `Water: ${water.toFixed(0)}g (${hydration.toFixed(1)}%)`,
+        `Salt: ${saltWeight.toFixed(1)}g (${salt.toFixed(1)}%)`,
+        `Sugar: ${sugarWeight.toFixed(1)}g (${sugar.toFixed(1)}%)`,
+        `Fat: ${fatWeight.toFixed(1)}g (${fat.toFixed(1)}%)`,
+        `Total dough: ${totalDough.toFixed(0)}g`,
+        `---`,
+        `Bulk: ${bulkTime}h @ ${bulkTemp}°C`,
+        `Cold: ${coldTime}h @ ${coldTemp}°C`,
+        `Base yeast: ${yeastResult.yeastPercent.toFixed(3)}% of flour`,
+        `With multiplier (${multiplier.toFixed(2)}x): ${yeastPercentAdjusted}% of flour`,
+        `Fresh yeast: ${yeastFresh}g`,
+        `Dry yeast: ${yeastDry}g`
+      ];
+
+      const detailsList = document.getElementById('detailsList');
+      detailsList.innerHTML = details.map(d => `<p>${d}</p>`).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      // Setup mode toggle
+      document.getElementById('modeGrams').addEventListener('click', () => switchInputMode('grams'));
+      document.getElementById('modeBakers').addEventListener('click', () => switchInputMode('bakers'));
+
+      // Setup slider displays
+      ['hydration', 'bulkTime', 'bulkTemp', 'coldTime', 'coldTemp'].forEach(id => {
+        const input = document.getElementById(id);
+        input.addEventListener('input', calculate);
+      });
+
+      // Setup number inputs
+      ['flour', 'salt', 'sugar', 'fat', 'multiplier'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calculate);
+      });
+
+      // Setup calculate button
+      document.getElementById('calculate').addEventListener('click', calculate);
+
+      // Initial calculation
+      calculate();
+    });
+  </script>
+</body>
+
+</html>
